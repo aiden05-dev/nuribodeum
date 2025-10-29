@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>누리보듬 · 병동 커뮤니티 (통합 테스트)</title>
+<style>
+/* ===== 공통 UI ===== */
+html{font-size:clamp(18px,2.2vw,26px);}
+body{margin:0;background:#f7f8fa;color:#1b1e23;font-family:system-ui,'Noto Sans KR',sans-serif;line-height:1.6;}
+header{position:sticky;top:0;background:#fff;border-bottom:1px solid #e5e7eb;z-index:5;}
+.toolbar{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;}
+.title{font-size:1.4rem;font-weight:800;}
+.controls{display:flex;gap:8px;flex-wrap:wrap;}
+button{font-size:1rem;border:none;border-radius:12px;cursor:pointer;padding:10px 18px;min-height:46px;}
+.primary{background:#3b82f6;color:#fff;}
+.ghost{background:#fff;border:2px solid #e5e7eb;}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #e5e7eb;font-size:.85rem;color:#64748b;}
+.kicker{color:#64748b;font-size:.95rem;}
+hr.sep{border:none;border-top:1px dashed #e5e7eb;margin:10px 0;}
+main{max-width:min(96vw,1550px);margin:0 auto;padding:clamp(12px,3vw,24px);display:flex;flex-direction:column;gap:20px;}
+.section-block{display:flex;align-items:center;gap:18px;background:#fff;border:2px solid #e5e7eb;border-radius:20px;padding:28px;box-shadow:0 5px 10px rgba(0,0,0,.05);cursor:pointer;transition:.2s;min-height:140px;}
+.section-block:hover{border-color:#3b82f6;transform:translateY(-2px);}
+.section-icon{font-size:2.4rem;}
+.section-title{font-size:1.3rem;font-weight:700;}
+.page{display:none;} .page.active{display:block;}
+.grid2{display:grid;gap:16px;grid-template-columns:1fr;}
+@media(min-width:980px){.grid2{grid-template-columns:1fr 1fr;}}
+.card{background:#fff;border:2px solid #e5e7eb;border-radius:18px;padding:20px;box-shadow:0 4px 10px rgba(0,0,0,.05);}
+.list{display:grid;gap:10px;}
+.item{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:14px;display:grid;gap:8px;}
+.item .meta{color:#64748b;font-size:.95rem;}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.tag{border:1px dashed #cbd5e1;padding:8px 12px;border-radius:999px;cursor:pointer;}
+.tag[aria-pressed="true"]{border-style:solid;background:#eef2ff;}
+.date-btn[aria-pressed="true"]{background:#3b82f6;color:#fff;border-color:transparent}
+
+/* ===== 채팅 모달 ===== */
+.dialog{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;justify-content:center;align-items:center;}
+.dialog.active{display:flex;}
+.chatbox{background:#fff;border-radius:18px;padding:16px;max-width:860px;width:92%;max-height:86vh;display:flex;flex-direction:column;gap:10px;border:2px solid #e5e7eb;}
+.chatlog{overflow:auto;flex:1;display:flex;flex-direction:column;gap:8px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px;}
+.bubble{padding:10px 14px;border-radius:14px;max-width:75%;word-break:break-word;}
+.me{align-self:flex-end;background:#e0ecff;}
+.other{align-self:flex-start;background:#f1f5f9;}
+select,
+textarea,
+input[type="number"],
+input[type="text"] {
+  font-size: 1.1rem;          /* 글자 크기 확대 */
+  line-height: 1.5;
+  padding: 14px 16px;         /* 내부 여백 확대 */
+  border: 2px solid #d1d5db;  /* 테두리 살짝 진하게 */
+  border-radius: 12px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* 포커스 시 좀 더 뚜렷하게 */
+select:focus,
+textarea:focus,
+input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+/* ===== 날짜 버튼 크기도 균형 맞추기 ===== */
+.date-btn {
+  font-size: 1.05rem;
+  padding: 10px 16px;
+  border-radius: 10px;
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="toolbar">
+    <div class="title">누리보듬 · 병동 커뮤니티</div>
+    <div class="controls">
+      <button id="edit-profile" class="ghost">닉네임 수정</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ===== 홈 ===== -->
+  <section id="home" class="page active" aria-label="홈">
+    <div class="section-block" data-go="page-meal"><div class="section-icon">🍚</div><div class="section-title">식사 모임 만들기 · 참여하기</div></div>
+    <div class="section-block" data-go="page-activity"><div class="section-icon">🎯</div><div class="section-title">관심사 모임 만들기 · 참여하기</div></div>
+    <div class="section-block" data-go="page-match"><div class="section-icon">💬</div><div class="section-title">1:1 대화(로컬 데모)</div></div>
+    <div class="section-block" data-go="page-my-chats"><div class="section-icon">📂</div><div class="section-title">내 채팅방 관리</div></div>
+  </section>
+
+  <!-- ===== 식사 모임 ===== -->
+  <section id="page-meal" class="page" aria-labelledby="meal-title">
+    <button class="ghost" data-back>← 뒤로</button>
+    <h2 id="meal-title">식사 모임</h2>
+    <div class="grid2" style="margin-top:8px;">
+      <!-- 만들기 -->
+      <div class="card">
+        <h3 style="margin-bottom:12px;">🍱 식사 모임 만들기</h3>
+        <div class="row" style="margin-bottom:12px;">
+          <div style="flex:1;">
+            <label class="kicker" style="display:block;margin-bottom:6px;">날짜</label>
+            <div id="meal-date-group" class="row" style="gap:6px;">
+              <button class="ghost date-btn" data-group="meal" data-date="0" aria-pressed="true">오늘</button>
+              <button class="ghost date-btn" data-group="meal" data-date="1">내일</button>
+              <button class="ghost date-btn" data-group="meal" data-date="2">모레</button>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <label class="kicker" style="display:block;margin-bottom:6px;">시간대</label>
+            <select id="meal-slot" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;">
+              <option>점심(11:30~13:00)</option>
+              <option>티타임(15:00~16:00)</option>
+              <option>저녁(17:30~19:00)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <label class="kicker" style="display:block;margin-bottom:6px;">장소</label>
+          <select id="meal-place" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;">
+            <option>휴게라운지 A</option>
+            <option>휴게라운지 B</option>
+            <option>복도 벤치 구역</option>
+            <option>옥상 정원</option>
+          </select>
+        </div>
+
+        <div class="row" style="align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div>
+            <label class="kicker" style="display:block;margin-bottom:4px;">인원(본인 포함)</label>
+            <input id="meal-cap" type="number" min="2" max="10" value="2"
+              style="width:100px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;text-align:center;" />
+          </div>
+          <span class="kicker" style="font-size:0.9rem;">※ 개인정보 입력 금지</span>
+        </div>
+
+        <div style="text-align:right;margin-top:8px;">
+          <button id="meal-save" class="primary" style="padding:12px 20px;border-radius:12px;font-weight:600;">
+            등록하기
+          </button>
+        </div>
+      </div>
+
+      <!-- 목록 -->
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <h3>모임 목록</h3>
+          <div class="row">
+            <button id="meal-refresh" class="ghost">새로고침</button>
+            <span class="badge" id="meal-count">0건</span>
+          </div>
+        </div>
+        <div id="meal-list" class="list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 관심사 모임 ===== -->
+  <section id="page-activity" class="page" aria-labelledby="act-title">
+    <button class="ghost" data-back>← 뒤로</button>
+    <h2 id="act-title">관심사 모임</h2>
+    <div class="grid2" style="margin-top:8px;">
+      <div class="card">
+        <h3 style="margin-bottom:12px;">🎯 관심사 모임 만들기</h3>
+
+        <div class="row" style="margin-bottom:12px;">
+          <div style="flex:1;">
+            <label class="kicker" style="display:block;margin-bottom:6px;">날짜</label>
+            <div id="act-date-group" class="row" style="gap:6px;">
+              <button class="ghost date-btn" data-group="act" data-date="0" aria-pressed="true">오늘</button>
+              <button class="ghost date-btn" data-group="act" data-date="1">내일</button>
+              <button class="ghost date-btn" data-group="act" data-date="2">모레</button>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <label class="kicker" style="display:block;margin-bottom:6px;">시간대</label>
+            <select id="act-slot" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;">
+              <option>오전(09:00~11:00)</option>
+              <option>오후(13:30~15:30)</option>
+              <option>저녁(18:00~20:00)</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="kicker" style="display:block;margin-bottom:6px;">장소</label>
+        <select id="act-place" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;">
+          <option>휴게라운지 A</option>
+          <option>휴게라운지 B</option>
+          <option>복도 벤치 구역</option>
+          <option>옥상 정원</option>
+        </select>
+
+        <div style="margin:12px 0;">
+          <label class="kicker" style="display:block;margin-bottom:6px;">관심사</label>
+          <div id="act-tags" class="row" style="gap:8px;">
+            <button class="tag" aria-pressed="false">음악 감상</button>
+            <button class="tag" aria-pressed="false">드라마/영화</button>
+            <button class="tag" aria-pressed="false">독서</button>
+            <button class="tag" aria-pressed="false">산책</button>
+            <button class="tag" aria-pressed="false">그림/색칠</button>
+            <button class="tag" aria-pressed="false">퍼즐</button>
+            <button class="tag" aria-pressed="false">종교대화</button>
+            <button class="tag" aria-pressed="false">잡담/수다</button>
+          </div>
+        </div>
+
+        <label class="kicker" style="display:block;margin-bottom:6px;">메모</label>
+        <textarea id="act-note" placeholder="예) 조용한 활동 원해요 (개인정보 금지)"
+          style="width:100%;padding:12px 14px;border:1px solid #e5e7eb;border-radius:10px;resize:vertical;min-height:80px;"></textarea>
+
+        <div class="row" style="align-items:center;justify-content:space-between;margin:10px 0;">
+          <div>
+            <label class="kicker" style="display:block;margin-bottom:4px;">인원(본인 포함)</label>
+            <input id="act-cap" type="number" min="2" max="10" value="2"
+              style="width:100px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;text-align:center;" />
+          </div>
+        </div>
+
+        <div style="text-align:right;margin-top:8px;">
+          <button id="act-save" class="primary" style="padding:12px 20px;border-radius:12px;font-weight:600;">
+            등록하기
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <h3>모임 목록</h3>
+          <div class="row">
+            <button id="act-refresh" class="ghost">새로고침</button>
+            <button id="act-filter-my" class="ghost">내 관심사만</button>
+            <span class="badge" id="act-count">0건</span>
+          </div>
+        </div>
+        <div id="act-list" class="list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 1:1 매칭 ===== -->
+<section id="page-match" class="page" aria-labelledby="match-title">
+  <button class="ghost" data-back>← 뒤로</button>
+  <h2 id="match-title">1:1 대화</h2>
+  <div class="card">
+    <p class="kicker">다른 이용자와 1:1 대화를 시작합니다. 개인정보는 입력하지 마세요.</p>
+    <div class="row" style="margin-bottom:8px;">
+      <button id="match-start" class="primary">매칭 요청</button>
+      <span id="match-state" class="badge" style="margin-left:auto;">대기 중 아님</span>
+    </div>
+    <div id="demo-log" class="list" style="max-height:220px;overflow:auto;"></div>
+  </div>
+</section>
+
+<script type="module">
+/* ===== 1:1 매칭 (Supabase 실시간 버전) ===== */
+let matchInterval = null;
+let isMatching = false;
+
+function addDemoMsg(text) {
+  const log = document.querySelector('#demo-log');
+  const div = document.createElement('div');
+  div.className = 'item';
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function updateMatchState(text) {
+  document.querySelector('#match-state').textContent = text;
+  addDemoMsg(text);
+}
+
+async function startMatching() {
+  PROFILE = await ensureProfile();
+  if (isMatching) return;
+
+  isMatching = true;
+  updateMatchState('매칭 대기열 등록 중...');
+
+  // 1️⃣ 본인을 Supabase match_queue에 등록
+  const { error: insertErr } = await sb
+    .from('match_queue')
+    .upsert([{ user_id: PROFILE.id, nickname: PROFILE.nickname }]);
+  if (insertErr) {
+    isMatching = false;
+    return alert('매칭 대기 등록 실패: ' + insertErr.message);
+  }
+
+  updateMatchState('매칭 대기 중... (3초마다 탐색)');
+
+  // 2️⃣ 3초마다 대기자 탐색
+  matchInterval = setInterval(async () => {
+    const { data: queue } = await sb
+      .from('match_queue')
+      .select('*')
+      .order('created_at');
+
+    const others = (queue || []).filter(q => q.user_id !== PROFILE.id);
+    if (others.length > 0) {
+      const partner = others[0];
+      updateMatchState(`매칭 성공! 상대: ${partner.nickname}`);
+
+      clearInterval(matchInterval);
+      isMatching = false;
+
+      // 3️⃣ Supabase rooms 생성
+      const { data: room, error: roomErr } = await sb
+        .from('rooms')
+        .insert([{ created_by: PROFILE.id, created_by_nick: PROFILE.nickname, type: 'direct' }])
+        .select()
+        .single();
+
+      if (roomErr) return alert('채팅방 생성 실패: ' + roomErr.message);
+
+      // 4️⃣ 두 참가자 등록
+      await sb.from('room_participants').insert([
+        { room_id: room.id, user_id: PROFILE.id, nickname: PROFILE.nickname },
+        { room_id: room.id, user_id: partner.user_id, nickname: partner.nickname },
+      ]);
+
+      // 5️⃣ 대기열에서 두 사람 삭제
+      await sb.from('match_queue').delete().in('user_id', [PROFILE.id, partner.user_id]);
+
+      // 6️⃣ 채팅방 열기
+      openChatModal(room.id, `1:1 대화 (${partner.nickname})`);
+    }
+  }, 3000);
+}
+
+async function cancelMatching() {
+  PROFILE = await ensureProfile();
+  await sb.from('match_queue').delete().eq('user_id', PROFILE.id);
+  clearInterval(matchInterval);
+  isMatching = false;
+  updateMatchState('매칭이 취소되었습니다.');
+}
+
+document.querySelector('#match-start').addEventListener('click', () => {
+  const btn = document.querySelector('#match-start');
+  if (isMatching) {
+    cancelMatching();
+    btn.textContent = '매칭 요청';
+    btn.classList.remove('ghost');
+    btn.classList.add('primary');
+  } else {
+    startMatching();
+    btn.textContent = '매칭 취소';
+    btn.classList.remove('primary');
+    btn.classList.add('ghost');
+  }
+});
+</script>
+
+  <!-- ===== 내 채팅방 ===== -->
+  <section id="page-my-chats" class="page" aria-labelledby="my-title">
+    <button class="ghost" data-back>← 뒤로</button>
+    <h2 id="my-title">내 채팅방</h2>
+    <div id="my-chats" class="list"></div>
+  </section>
+</main>
+
+<!-- ===== 채팅 모달 ===== -->
+<div id="chatModal" class="dialog">
+  <div class="chatbox">
+    <div class="row" style="justify-content:space-between;align-items:center;">
+      <h3 id="chatTitle" style="margin:0;">채팅방</h3>
+      <button id="closeChat" class="ghost">닫기</button>
+    </div>
+    <div id="chatlog" class="chatlog"></div>
+    <div class="row"><input id="chat-input" style="flex:1;padding:10px;border-radius:10px;border:1px solid #e5e7eb;" placeholder="메시지 입력(개인정보 금지)"/><button id="chat-send" class="primary">보내기</button></div>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+/* ===== Supabase 클라이언트 ===== */
+const sb = createClient(
+  'https://upmghgogtalctkydifeh.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwbWdoZ29ndGFsY3RreWRpZmVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1NTkzNDIsImV4cCI6MjA3NzEzNTM0Mn0.BaV43taAaKBMOKfILmo9s4phjHRkhfOHsW5w7BqZErg'
+);
+
+/* ===== 유틸 / 프로필 ===== */
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+function showPage(id){$$('.page').forEach(p=>p.classList.remove('active'));$('#'+id).classList.add('active');window.scrollTo({top:0,behavior:'smooth'});}
+$$('#home .section-block').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.go)));
+$$('[data-back]').forEach(b=>b.addEventListener('click',()=>showPage('home')));
+
+function randId(){const a=['새','고양이','강아지','사슴','달','별','하늘'];const c=['푸른','은빛','따뜻한','잔잔한'];return c[Math.floor(Math.random()*c.length)]+a[Math.floor(Math.random()*a.length)]+Math.floor(100+Math.random()*900);}
+function getProfile(){try{return JSON.parse(localStorage.getItem('nb_profile')||'null');}catch{return null;}}
+function setProfile(p){localStorage.setItem('nb_profile',JSON.stringify(p));}
+async function ensureProfile(){let p=getProfile();if(p&&p.id&&p.nickname)return p;const nickname=prompt('닉네임을 입력하세요(실명 금지):')||'익명';p={id:randId(),nickname};setProfile(p);return p;}
+$('#edit-profile').addEventListener('click',()=>{const n=prompt('새 닉네임:');if(!n) return; const p=getProfile()||{id:randId()};p.nickname=n;setProfile(p);alert('저장되었습니다.');});
+let PROFILE=await ensureProfile();
+
+// ✅ UTC 대신 로컬 기준 날짜 문자열 반환
+function isoLocal(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// ✅ 초기값도 로컬 기준으로
+const DATE = { meal: isoLocal(new Date()), act: isoLocal(new Date()) };
+
+// ✅ 각 버튼 클릭 시 로컬 기준으로 날짜 갱신
+function bindDateGroup(group) {
+  const btns = document.querySelectorAll(`.date-btn[data-group="${group}"]`);
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      btns.forEach(b => b.setAttribute('aria-pressed', 'false'));
+      btn.setAttribute('aria-pressed', 'true');
+      const offset = parseInt(btn.dataset.date || '0', 10);
+      const d = new Date();
+      d.setDate(d.getDate() + offset);  // 로컬 기준 이동
+      DATE[group] = isoLocal(d);        // ✅ isoLocal 사용
+      console.log(`[${group}] 선택된 날짜:`, DATE[group]); // 디버그 확인용
+    });
+  });
+}
+
+bindDateGroup('meal');
+bindDateGroup('act');
+
+/* ===== 식사 모임: 방장 자동참여 + 채팅방 자동생성 ===== */
+$('#meal-save').addEventListener('click', async ()=>{
+    PROFILE = await ensureProfile();
+
+    // 입력값
+    const date = DATE.meal;                           // ✅ 로컬 기준 날짜
+    const slot = $('#meal-slot').value;
+    const place = $('#meal-place').value;
+    const capacity = Math.max(2, Math.min(10, parseInt($('#meal-cap').value||'2',10)));
+
+    // 1) 모임 생성
+    const { data: meetup, error: meetErr } = await sb
+        .from('meal_meetups')
+        .insert([{ date, slot, place, capacity, created_by: PROFILE.id, nickname: PROFILE.nickname }])
+        .select()
+        .single();
+
+    if (meetErr) return alert('등록 실패: ' + meetErr.message);
+
+    // 2) 방장 자동 참여(남은자리 감소/버튼 상태 위해 반드시 필요)
+    const { error: memErr } = await sb
+        .from('meal_members')
+        .insert([{ meetup_id: meetup.id, user_id: PROFILE.id, nickname: PROFILE.nickname }]);
+    if (memErr && memErr.code !== '23505') {
+        console.warn('방장 자동참여 실패:', memErr.message);
+        // 계속 진행은 함 (아래 방 생성)
+    }
+
+    // 3) 채팅방 생성 + 방장 참가자 등록
+    const { data: room, error: roomErr } = await sb
+        .from('rooms')
+        .insert([{ meetup_id: meetup.id, created_by: PROFILE.id, created_by_nick: PROFILE.nickname }])
+        .select()
+        .single();
+
+    if (roomErr) {
+        console.error('채팅방 생성 실패:', roomErr.message);
+        alert('모임은 생성되었지만 채팅방 생성에 실패했습니다.');
+        await renderMeal();
+        return;
+    }
+
+    // 방장(본인) 채팅방 참가자로 보장
+    const { error: partErr } = await sb
+        .from('room_participants')
+        .upsert([{ room_id: room.id, user_id: PROFILE.id, nickname: PROFILE.nickname }]);
+    if (partErr) console.warn('room_participants 등록 실패:', partErr.message);
+
+    // 4) UI 갱신: 남은자리 감소 + 버튼 “참여중/채팅”으로 반영
+    await renderMeal();
+
+    // 선택: 바로 채팅 열고 싶으면 주석 해제
+    // openChatModal(room.id, `${slot} · ${place} (${date})`);
+    alert('식사 모임/채팅방이 생성되고, 방장으로 자동 참여 처리되었습니다.');
+});
+
+async function joinMeal(id){ PROFILE=await ensureProfile(); const { error }=await sb.from('meal_members').insert([{ meetup_id:id, user_id:PROFILE.id, nickname:PROFILE.nickname }]); if(error&&error.code!=='23505') return alert('참여 실패: '+error.message); await openOrCreateRoom(id,'meal'); renderMeal(); }
+async function leaveMeal(id){ PROFILE=await ensureProfile(); await sb.from('meal_members').delete().match({ meetup_id:id, user_id:PROFILE.id }); renderMeal(); }
+async function delMeal(id){ PROFILE=await ensureProfile(); await sb.from('meal_meetups').delete().match({ id, created_by:PROFILE.id }); renderMeal(); }
+async function fetchMealView(){ const { data: meets }=await sb.from('meal_meetups').select('*').order('date'); const { data: members }=await sb.from('meal_members').select('*'); return { meets:meets||[], members:members||[] }; }
+async function renderMeal(){
+  const wrap=$('#meal-list'); wrap.innerHTML='<p class="item">불러오는 중…</p>';
+  const { meets, members } = await fetchMealView();
+  $('#meal-count').textContent=`${meets.length}건`;
+  if(meets.length===0){ wrap.innerHTML='<p class="item">모임이 없습니다.</p>'; return; }
+  wrap.innerHTML = meets.map(m=>{
+    const joined = members.some(x=>x.meetup_id===m.id && x.user_id===PROFILE.id);
+    const cnt = members.filter(x=>x.meetup_id===m.id).length;
+    const left = Math.max(0,(m.capacity||0)-cnt);
+    const isOwner = m.created_by===PROFILE.id;
+    return `
+    <div class="item">
+      <div><b>${m.slot}</b> · ${m.place} <span class="badge">${m.date}</span></div>
+      <div class="meta">정원 ${m.capacity} · 남은자리 ${left}/${m.capacity} · 만든이 ${m.nickname||'익명'}</div>
+      <div class="row" style="justify-content:flex-end;">
+        ${isOwner? `<button class="ghost" data-mdel="${m.id}">삭제</button>`:''}
+        ${joined? `<button class="ghost" data-mleave="${m.id}">취소하기</button><button class="primary" data-mchat="${m.id}" data-type="meal">채팅</button>`
+                 : `<button class="primary" data-mjoin="${m.id}" ${left===0?'disabled':''}>참여하기</button>`}
+      </div>
+    </div>`;
+  }).join('');
+  $$('#meal-list [data-mjoin]').forEach(b=> b.addEventListener('click', ()=> joinMeal(b.dataset.mjoin)));
+  $$('#meal-list [data-mleave]').forEach(b=> b.addEventListener('click', ()=> leaveMeal(b.dataset.mleave)));
+  $$('#meal-list [data-mdel]').forEach(b=> b.addEventListener('click', ()=> delMeal(b.dataset.mdel)));
+  $$('#meal-list [data-mchat]').forEach(b=> b.addEventListener('click', async ()=>{ await openOrCreateRoom(b.dataset.mchat,'meal'); }));
+}
+$('#meal-refresh').addEventListener('click', renderMeal);
+
+/* ===== 관심사 모임: 방장 자동참여 + 채팅방 자동생성 ===== */
+function pickTags(containerSel){ 
+  const chosen=[]; 
+  $$(containerSel+' .tag[aria-pressed="true"]').forEach(t=>chosen.push(t.textContent.trim())); 
+  return chosen; 
+}
+
+$('#act-tags').addEventListener('click', (e)=>{
+  const b=e.target.closest('.tag');
+  if(!b) return;
+  b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed')!=='true'));
+});
+
+$('#act-save').addEventListener('click', async ()=>{
+  PROFILE = await ensureProfile();
+
+  const date = DATE.act;
+  const slot = $('#act-slot').value;
+  const place = $('#act-place').value;
+  const note = $('#act-note').value.trim();
+  const capacity = Math.max(2, Math.min(10, parseInt($('#act-cap').value||'2',10)));
+  const tags = pickTags('#act-tags');
+
+  try {
+    // 1️⃣ 모임 생성
+    const { data: meetup, error: actErr } = await sb
+      .from('activity_meetups')
+      .insert([{ date, slot, place, capacity, tags, note, created_by: PROFILE.id, nickname: PROFILE.nickname }])
+      .select()
+      .single();
+    if (actErr) throw actErr;
+
+    // 2️⃣ 방장 자동참여(activity_members)
+    const { error: memErr } = await sb
+      .from('activity_members')
+      .insert([{ meetup_id: meetup.id, user_id: PROFILE.id, nickname: PROFILE.nickname }]);
+    if (memErr && memErr.code !== '23505') console.warn('방장 자동참여 실패:', memErr.message);
+
+    // 3️⃣ 채팅방 생성 (rooms)
+    const { data: room, error: roomErr } = await sb
+      .from('rooms')
+      .insert([{ meetup_id: meetup.id, created_by: PROFILE.id, created_by_nick: PROFILE.nickname }])
+      .select()
+      .single();
+    if (roomErr) throw roomErr;
+
+    // 4️⃣ 방장 room_participants 등록
+    const { error: partErr } = await sb
+      .from('room_participants')
+      .upsert([{ room_id: room.id, user_id: PROFILE.id, nickname: PROFILE.nickname }]);
+    if (partErr) console.warn('room_participants 등록 실패:', partErr.message);
+
+    // 5️⃣ UI 갱신
+    await renderActivity();
+
+    alert('🎯 관심사 모임/채팅방이 생성되고, 방장이 자동 참여되었습니다.');
+  } catch (e) {
+    console.error('관심사 모임 생성 실패:', e.message);
+    alert('❌ 관심사 모임 생성 중 오류: ' + e.message);
+  }
+});
+
+async function joinActivity(id){
+  PROFILE = await ensureProfile();
+  const { error } = await sb.from('activity_members')
+    .insert([{ meetup_id:id, user_id:PROFILE.id, nickname:PROFILE.nickname }]);
+  if (error && error.code !== '23505') return alert('참여 실패: ' + error.message);
+  await openOrCreateRoom(id,'act');
+  renderActivity();
+}
+
+async function leaveActivity(id){
+  PROFILE = await ensureProfile();
+  await sb.from('activity_members').delete().match({ meetup_id:id, user_id:PROFILE.id });
+  renderActivity();
+}
+
+async function delActivity(id){
+  PROFILE = await ensureProfile();
+  await sb.from('activity_meetups').delete().match({ id, created_by:PROFILE.id });
+  renderActivity();
+}
+
+let ACT_FILTER_MY = false;
+$('#act-filter-my').addEventListener('click',()=>{
+  ACT_FILTER_MY = !ACT_FILTER_MY;
+  $('#act-filter-my').classList.toggle('primary',ACT_FILTER_MY);
+  renderActivity();
+});
+
+async function fetchActivityView(){
+  const { data: meets } = await sb.from('activity_meetups').select('*').order('date');
+  const { data: members } = await sb.from('activity_members').select('*');
+  return { meets: meets||[], members: members||[] };
+}
+
+async function renderActivity(){
+  const wrap = $('#act-list');
+  wrap.innerHTML = '<p class="item">불러오는 중…</p>';
+  const { meets, members } = await fetchActivityView();
+  $('#act-count').textContent = `${meets.length}건`;
+
+  const myTags = new Set(pickTags('#act-tags'));
+  const filtered = ACT_FILTER_MY && myTags.size>0 
+    ? meets.filter(m => (m.tags||[]).some(t => myTags.has(t)))
+    : meets;
+
+  if (filtered.length === 0) {
+    wrap.innerHTML = '<p class="item">모임이 없습니다.</p>';
+    return;
+  }
+
+  wrap.innerHTML = filtered.map(m=>{
+    const joined = members.some(x=>x.meetup_id===m.id && x.user_id===PROFILE.id);
+    const cnt = members.filter(x=>x.meetup_id===m.id).length;
+    const left = Math.max(0,(m.capacity||0)-cnt);
+    const isOwner = m.created_by === PROFILE.id;
+    const tagStr = (m.tags||[]).join(', ');
+    return `
+    <div class="item">
+      <div><b>${m.slot}</b> · ${m.place} <span class="badge">${m.date}</span></div>
+      <div class="meta">
+        관심사: ${tagStr||'없음'} · 정원 ${m.capacity} · 남은자리 ${left}/${m.capacity} · 만든이 ${m.nickname||'익명'}
+      </div>
+      <div class="row" style="justify-content:flex-end;">
+        ${isOwner
+          ? `<button class="ghost" data-ad="${m.id}">삭제</button>`
+          : ''}
+        ${joined
+          ? `<button class="ghost" data-al="${m.id}">취소하기</button>
+             <button class="primary" data-ach="${m.id}" data-type="act">채팅</button>`
+          : `<button class="primary" data-aj="${m.id}" ${left===0?'disabled':''}>참여하기</button>`}
+      </div>
+    </div>`;
+  }).join('');
+
+  $$('#act-list [data-aj]').forEach(b=> b.addEventListener('click', ()=> joinActivity(b.dataset.aj)));
+  $$('#act-list [data-al]').forEach(b=> b.addEventListener('click', ()=> leaveActivity(b.dataset.al)));
+  $$('#act-list [data-ad]').forEach(b=> b.addEventListener('click', ()=> delActivity(b.dataset.ad)));
+  $$('#act-list [data-ach]').forEach(b=> b.addEventListener('click', async ()=>{
+    await openOrCreateRoom(b.dataset.ach,'act');
+  }));
+}
+
+$('#act-refresh').addEventListener('click', renderActivity);
+
+
+/* ===== 1:1 매칭 (Supabase 기반 실시간 버전) ===== */
+let matchInterval = null;
+let isMatching = false;
+
+function updateMatchState(text) {
+  $('#match-state').textContent = text;
+  addDemoMsg(text);
+}
+
+async function startMatching() {
+  PROFILE = await ensureProfile();
+  if (isMatching) return;
+
+  isMatching = true;
+  updateMatchState('매칭 대기열 등록 중...');
+
+  // 1️⃣ 본인을 대기열에 등록 (중복 시 upsert)
+  const { error: insertErr } = await sb
+    .from('match_queue')
+    .upsert([{ user_id: PROFILE.id, nickname: PROFILE.nickname }]);
+  if (insertErr) {
+    isMatching = false;
+    return alert('매칭 대기 등록 실패: ' + insertErr.message);
+  }
+
+  updateMatchState('매칭 대기 중... (3초마다 상대 탐색)');
+
+  // 2️⃣ 3초마다 다른 대기자 탐색
+  matchInterval = setInterval(async () => {
+    const { data: queue } = await sb
+      .from('match_queue')
+      .select('*')
+      .order('created_at');
+
+    const others = (queue || []).filter(q => q.user_id !== PROFILE.id);
+    if (others.length > 0) {
+      const partner = others[0];
+      updateMatchState(`매칭 성공! 상대: ${partner.nickname}`);
+
+      clearInterval(matchInterval);
+      isMatching = false;
+
+      // 3️⃣ 채팅방 생성
+      const { data: room, error: roomErr } = await sb
+        .from('rooms')
+        .insert([{ created_by: PROFILE.id, created_by_nick: PROFILE.nickname, type: 'direct' }])
+        .select()
+        .single();
+
+      if (roomErr) return alert('채팅방 생성 실패: ' + roomErr.message);
+
+      // 4️⃣ 두 참가자 등록
+      await sb.from('room_participants').insert([
+        { room_id: room.id, user_id: PROFILE.id, nickname: PROFILE.nickname },
+        { room_id: room.id, user_id: partner.user_id, nickname: partner.nickname },
+      ]);
+
+      // 5️⃣ 대기열에서 제거
+      await sb.from('match_queue').delete().in('user_id', [PROFILE.id, partner.user_id]);
+
+      // 6️⃣ 채팅방 열기
+      openChatModal(room.id, `1:1 대화 (${partner.nickname})`);
+    }
+  }, 3000);
+}
+
+async function cancelMatching() {
+  PROFILE = await ensureProfile();
+  await sb.from('match_queue').delete().eq('user_id', PROFILE.id);
+  clearInterval(matchInterval);
+  isMatching = false;
+  updateMatchState('매칭이 취소되었습니다.');
+}
+
+// UI 이벤트
+$('#match-start').addEventListener('click', () => {
+  if (isMatching) {
+    cancelMatching();
+    $('#match-start').textContent = '매칭 요청';
+    $('#match-start').classList.remove('ghost');
+    $('#match-start').classList.add('primary');
+  } else {
+    startMatching();
+    $('#match-start').textContent = '매칭 취소';
+    $('#match-start').classList.remove('primary');
+    $('#match-start').classList.add('ghost');
+  }
+});
+
+
+/* ===== 채팅방/메시지 ===== */
+let ACTIVE_ROOM=null, msgSub=null;
+function setChatTitle(roomId, title){ $('#chatTitle').textContent = title? `채팅방 · ${title}` : `채팅방 (${roomId.slice(0,6)})`; }
+function appendMsg(m){ const box=$('#chatlog'); const el=document.createElement('div'); el.className='bubble '+(m.user_id===PROFILE.id?'me':'other'); el.textContent=`${m.nickname}: ${m.text}`; box.appendChild(el); box.scrollTop=box.scrollHeight; }
+async function renderChat(roomId){ const box=$('#chatlog'); box.innerHTML='불러오는 중…'; const { data: msgs }=await sb.from('messages').select('*').eq('room_id',roomId).order('created_at',{ascending:true}); box.innerHTML=''; (msgs||[]).forEach(appendMsg); }
+
+async function openOrCreateRoom(meetup_id, type){
+  PROFILE=await ensureProfile();
+  // 참가자 목록
+  let mems=[];
+  if(type==='meal'){ const { data }=await sb.from('meal_members').select('user_id,nickname').eq('meetup_id',meetup_id); mems=data||[]; }
+  else{ const { data }=await sb.from('activity_members').select('user_id,nickname').eq('meetup_id',meetup_id); mems=data||[]; }
+  // 방 조회/생성
+  let { data: room }=await sb.from('rooms').select('*').eq('meetup_id',meetup_id).maybeSingle();
+  if(!room){
+    const { data: created, error }=await sb.from('rooms').insert([{ meetup_id, created_by:PROFILE.id, created_by_nick:PROFILE.nickname }]).select().single();
+    if(error) return alert('채팅방 생성 실패: '+error.message);
+    room=created;
+    const parts = mems.map(m=>({ room_id:room.id, user_id:m.user_id, nickname:m.nickname }));
+    if(parts.length) await sb.from('room_participants').insert(parts);
+  }else{
+    await sb.from('room_participants').upsert([{ room_id:room.id, user_id:PROFILE.id, nickname:PROFILE.nickname }]);
+  }
+  // 타이틀
+  let title='';
+  if(type==='meal'){ const { data: meet }=await sb.from('meal_meetups').select('slot,place,date').eq('id',meetup_id).maybeSingle(); if(meet) title=`${meet.slot} · ${meet.place} (${meet.date})`; }
+  else{ const { data: meet }=await sb.from('activity_meetups').select('slot,place,date').eq('id',meetup_id).maybeSingle(); if(meet) title=`${meet.slot} · ${meet.place} (${meet.date})`; }
+  openChatModal(room.id, title);
+}
+
+function openChatModal(roomId, title){
+  ACTIVE_ROOM=roomId;
+  setChatTitle(roomId, title);
+  $('#chatModal').classList.add('active');
+
+  // 중복 구독 제거 + 초기 로드
+  sb.removeAllChannels();
+  renderChat(roomId);
+
+  // 실시간 구독
+  msgSub = sb.channel('msg_'+roomId)
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages', filter:`room_id=eq.${roomId}` },
+      payload=>appendMsg(payload.new))
+    .subscribe();
+}
+function closeChatModal(){ $('#chatModal').classList.remove('active'); sb.removeAllChannels(); ACTIVE_ROOM=null; }
+$('#closeChat').addEventListener('click', closeChatModal);
+
+$('#chat-send').addEventListener('click', async ()=>{
+  if(!ACTIVE_ROOM) return;
+  const input=$('#chat-input'); const text=input.value.trim();
+  if(!text) return; input.value='';
+  const { error } = await sb.from('messages').insert([{ room_id:ACTIVE_ROOM, user_id:PROFILE.id, nickname:PROFILE.nickname, text }]);
+  if(error) return alert('전송 실패: '+error.message);
+  appendMsg({ user_id:PROFILE.id, nickname:PROFILE.nickname, text }); // 즉시 반영
+  // 필요시 재로딩: await renderChat(ACTIVE_ROOM);
+});
+
+/* ===== 내 채팅방 ===== */
+async function renderMyChats() {
+  PROFILE = await ensureProfile();
+  const { data: parts } = await sb
+    .from('room_participants')
+    .select('room_id')
+    .eq('user_id', PROFILE.id);
+
+  const ids = (parts || []).map(p => p.room_id);
+  const wrap = $('#my-chats');
+
+  if (!ids.length) {
+    wrap.innerHTML = '<p class="item">참여 중인 채팅방이 없습니다.</p>';
+    return;
+  }
+
+  // ✅ rooms, meals, acts 모두 불러오기
+  const { data: rooms } = await sb
+    .from('rooms')
+    .select('id, meetup_id, created_by_nick, created_at')
+    .in('id', ids);
+
+  const { data: meals } = await sb
+    .from('meal_meetups')
+    .select('id, slot, place, date');
+
+  const { data: acts } = await sb
+    .from('activity_meetups')
+    .select('id, slot, place, date, tags');
+
+  // ✅ 렌더링
+  wrap.innerHTML = (rooms || [])
+    .map(r => {
+      // 모임 정보 찾기
+      const meal = (meals || []).find(x => x.id === r.meetup_id);
+      const act = (acts || []).find(x => x.id === r.meetup_id);
+
+      let title = '';
+      let typeLabel = '';
+      let tagLabel = '';
+
+      if (meal) {
+        typeLabel = '🍚 식사 모임';
+        title = `${meal.slot} · ${meal.place} (${meal.date})`;
+      } else if (act) {
+        typeLabel = '🎯 관심사 모임';
+        const tags = act.tags && act.tags.length
+          ? act.tags.join(', ')
+          : '관심사 없음';
+        tagLabel = `<div class="meta">관심사: ${tags}</div>`;
+        title = `${act.slot} · ${act.place} (${act.date})`;
+      } else {
+        typeLabel = '💬 기타 방';
+        title = `방 ${r.id.slice(0, 6)}`;
+      }
+
+      return `
+      <div class="item">
+        <div><b>${typeLabel}</b> · ${title}</div>
+        ${tagLabel}
+        <div class="meta">방장: ${r.created_by_nick || '익명'} · 생성일: ${String(r.created_at).slice(0, 10)}</div>
+        <div class="row" style="justify-content:flex-end;">
+          <button class="primary" data-open="${r.id}">입장하기</button>
+        </div>
+      </div>`;
+    })
+    .join('');
+
+  // 클릭 이벤트
+  $$('#my-chats [data-open]').forEach(b =>
+    b.addEventListener('click', async () => {
+      const roomId = b.dataset.open;
+      const { data: room } = await sb
+        .from('rooms')
+        .select('meetup_id')
+        .eq('id', roomId)
+        .maybeSingle();
+
+      let title = '';
+      if (room && room.meetup_id) {
+        const { data: mm } = await sb
+          .from('meal_meetups')
+          .select('slot, place, date')
+          .eq('id', room.meetup_id)
+          .maybeSingle();
+
+        const { data: aa } = await sb
+          .from('activity_meetups')
+          .select('slot, place, date, tags')
+          .eq('id', room.meetup_id)
+          .maybeSingle();
+
+        if (mm) title = `🍚 식사 모임 · ${mm.slot} · ${mm.place} (${mm.date})`;
+        else if (aa) {
+          const tags = aa.tags && aa.tags.length
+            ? aa.tags.join(', ')
+            : '관심사 없음';
+          title = `🎯 관심사 모임 · ${tags} · ${aa.slot} · ${aa.place} (${aa.date})`;
+        }
+      }
+      openChatModal(roomId, title);
+    })
+  );
+}
+
+$$('[data-go="page-my-chats"]').forEach(btn=>btn.addEventListener('click',()=>{ showPage('page-my-chats'); renderMyChats(); }));
+
+/* ===== 초기 렌더 ===== */
+showPage('home');
+renderMeal();
+renderActivity();
+</script>
+</body>
+</html>
