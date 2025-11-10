@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>보듬ON 병동 커뮤니티</title>
+<title>누리보듬 · 병동 커뮤니티 (통합 테스트)</title>
 <style>
 /* ===== 공통 UI ===== */
-html{font-size:clamp(36px,4.4vw,52px);}
+html { font-size: clamp(18px, 2.2vw, 26px); }
 body{margin:0;background:#f7f8fa;color:#1b1e23;font-family:system-ui,'Noto Sans KR',sans-serif;line-height:1.6;}
 header{position:sticky;top:0;background:#fff;border-bottom:1px solid #e5e7eb;z-index:5;}
 .toolbar{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;}
@@ -71,10 +71,12 @@ input:focus {
   border-radius: 10px;
 }
 .logo img {
-  height: 120px;
+  height: 48px;          /* 로고 크기 */
   width: auto;
+  margin-right: 10px;
+  vertical-align: middle;
+  border-radius: 10px;   /* 살짝 둥글게 (원하면 제거 가능) */
 }
-
 
 /* 제목과 로고 정렬 보정 */
 .toolbar {
@@ -88,6 +90,18 @@ input:focus {
   flex: 1;
   text-align: left;      /* 로고 옆으로 제목 정렬 */
 }
+#home .section-icon { 
+  font-size: 3.6rem;   /* 카드 아이콘만 확대 (기존 2.4rem 근처였다면 약 1.5배) */
+}
+#home .section-title { 
+  font-size: 1.8rem;   /* 카드 제목만 확대 (기존 1.3rem → 읽기 쉬움) */
+  font-weight: 800;    /* 굵게 해서 시인성 향상 */
+}
+
+/* (선택) 카드 클릭 영역도 살짝 키우고 싶으면 */
+#home .section-block {
+  padding: 32px;       /* 여백만 약간 증가, 다른 페이지엔 영향 없음 */
+}
 </style>
 </head>
 <body>
@@ -96,12 +110,13 @@ input:focus {
     <div class="logo">
       <img src="logo.png" alt="보듬ON 로고" />
     </div>
-    <div class="title">보듬ON 병동 커뮤니티</div>
+    <div class="title">누리보듬 · 병동 커뮤니티</div>
     <div class="controls">
       <button id="edit-profile" class="ghost">닉네임 수정</button>
     </div>
   </div>
 </header>
+
 
 <main>
   <!-- ===== 홈 ===== -->
@@ -274,106 +289,6 @@ input:focus {
     <div id="demo-log" class="list" style="max-height:220px;overflow:auto;"></div>
   </div>
 </section>
-
-<script type="module">
-/* ===== 1:1 매칭 (Supabase 실시간 버전) ===== */
-let matchInterval = null;
-let isMatching = false;
-
-function addDemoMsg(text) {
-  const log = document.querySelector('#demo-log');
-  const div = document.createElement('div');
-  div.className = 'item';
-  div.textContent = text;
-  log.appendChild(div);
-  log.scrollTop = log.scrollHeight;
-}
-
-function updateMatchState(text) {
-  document.querySelector('#match-state').textContent = text;
-  addDemoMsg(text);
-}
-
-async function startMatching() {
-  PROFILE = await ensureProfile();
-  if (isMatching) return;
-
-  isMatching = true;
-  updateMatchState('매칭 대기열 등록 중...');
-
-  // 1️⃣ 본인을 Supabase match_queue에 등록
-  const { error: insertErr } = await sb
-    .from('match_queue')
-    .upsert([{ user_id: PROFILE.id, nickname: PROFILE.nickname }]);
-  if (insertErr) {
-    isMatching = false;
-    return alert('매칭 대기 등록 실패: ' + insertErr.message);
-  }
-
-  updateMatchState('매칭 대기 중... (3초마다 탐색)');
-
-  // 2️⃣ 3초마다 대기자 탐색
-  matchInterval = setInterval(async () => {
-    const { data: queue } = await sb
-      .from('match_queue')
-      .select('*')
-      .order('created_at');
-
-    const others = (queue || []).filter(q => q.user_id !== PROFILE.id);
-    if (others.length > 0) {
-      const partner = others[0];
-      updateMatchState(`매칭 성공! 상대: ${partner.nickname}`);
-
-      clearInterval(matchInterval);
-      isMatching = false;
-
-      // 3️⃣ Supabase rooms 생성
-      const { data: room, error: roomErr } = await sb
-        .from('rooms')
-        .insert([{ created_by: PROFILE.id, created_by_nick: PROFILE.nickname, type: 'direct' }])
-        .select()
-        .single();
-
-      if (roomErr) return alert('채팅방 생성 실패: ' + roomErr.message);
-
-      // 4️⃣ 두 참가자 등록
-      await sb.from('room_participants').insert([
-        { room_id: room.id, user_id: PROFILE.id, nickname: PROFILE.nickname },
-        { room_id: room.id, user_id: partner.user_id, nickname: partner.nickname },
-      ]);
-
-      // 5️⃣ 대기열에서 두 사람 삭제
-      await sb.from('match_queue').delete().in('user_id', [PROFILE.id, partner.user_id]);
-
-      // 6️⃣ 채팅방 열기
-      openChatModal(room.id, `1:1 대화 (${partner.nickname})`);
-    }
-  }, 3000);
-}
-
-async function cancelMatching() {
-  PROFILE = await ensureProfile();
-  await sb.from('match_queue').delete().eq('user_id', PROFILE.id);
-  clearInterval(matchInterval);
-  isMatching = false;
-  updateMatchState('매칭이 취소되었습니다.');
-}
-
-document.querySelector('#match-start').addEventListener('click', () => {
-  const btn = document.querySelector('#match-start');
-  if (isMatching) {
-    cancelMatching();
-    btn.textContent = '매칭 요청';
-    btn.classList.remove('ghost');
-    btn.classList.add('primary');
-  } else {
-    startMatching();
-    btn.textContent = '매칭 취소';
-    btn.classList.remove('primary');
-    btn.classList.add('ghost');
-  }
-});
-</script>
 
   <!-- ===== 내 채팅방 ===== -->
   <section id="page-my-chats" class="page" aria-labelledby="my-title">
@@ -691,6 +606,37 @@ function updateMatchState(text) {
   addDemoMsg(text);
 }
 
+// 위치 ②: 큐에서 상대 1명을 집어와 1:1 방을 만들고 열어주는 함수
+async function tryPairOnce() {
+  PROFILE = await ensureProfile();
+
+  // 1) 매칭 큐 조회(오래 기다린 순)
+  const { data: queue, error } = await sb
+    .from('match_queue')
+    .select('user_id, nickname, created_at')
+    .order('created_at');
+  if (error) { console.error('match_queue 조회 오류:', error); return false; }
+
+  // 2) 본인이 아닌 가장 빠른 대기자 선택
+  const me = PROFILE;
+  const other = (queue || []).find(q => q.user_id !== me.id);
+  if (!other) return false;  // 상대가 아직 없으면 패스
+
+  // 3) 1:1 방 생성 + 두 참가자 등록 (openDirectRoom 활용)
+  await openDirectRoom(
+    { id: me.id, nickname: me.nickname },
+    { id: other.user_id, nickname: other.nickname }
+  );
+
+  // 4) 두 사람을 큐에서 제거
+  await sb.from('match_queue').delete().in('user_id', [me.id, other.user_id]);
+
+  // 5) 상태 갱신
+  updateMatchState(`매칭 성공! 상대: ${other.nickname}`);
+  return true;
+}
+
+
 async function startMatching() {
   PROFILE = await ensureProfile();
   if (isMatching) return;
@@ -698,55 +644,49 @@ async function startMatching() {
   isMatching = true;
   updateMatchState('매칭 대기열 등록 중...');
 
-  // 1️⃣ 본인을 대기열에 등록 (중복 시 upsert)
+  // 1) 본인을 대기열에 등록 (중복 시 upsert)
   const { error: insertErr } = await sb
     .from('match_queue')
     .upsert([{ user_id: PROFILE.id, nickname: PROFILE.nickname }]);
   if (insertErr) {
     isMatching = false;
-    return alert('매칭 대기 등록 실패: ' + insertErr.message);
+    alert('매칭 대기 등록 실패: ' + insertErr.message);
+    return;
   }
 
   updateMatchState('매칭 대기 중... (3초마다 상대 탐색)');
 
-  // 2️⃣ 3초마다 다른 대기자 탐색
+  // 2) 즉시 한 번 먼저 시도: 이미 상대가 기다리는 경우 바로 매칭
+  const immediate = await tryPairOnce();
+  if (immediate) {
+    isMatching = false;
+    const btn = $('#match-start');
+    if (btn) {
+      btn.textContent = '매칭 요청';
+      btn.classList.remove('ghost');
+      btn.classList.add('primary');
+    }
+    return;
+  }
+
+  // 3) 3초마다 시도: 상대가 생기면 tryPairOnce()가 방 생성까지 처리
   matchInterval = setInterval(async () => {
-    const { data: queue } = await sb
-      .from('match_queue')
-      .select('*')
-      .order('created_at');
-
-    const others = (queue || []).filter(q => q.user_id !== PROFILE.id);
-    if (others.length > 0) {
-      const partner = others[0];
-      updateMatchState(`매칭 성공! 상대: ${partner.nickname}`);
-
+    const paired = await tryPairOnce();  // ← 핵심: 내부 호출
+    if (paired) {
       clearInterval(matchInterval);
       isMatching = false;
 
-      // 3️⃣ 채팅방 생성
-      const { data: room, error: roomErr } = await sb
-        .from('rooms')
-        .insert([{ created_by: PROFILE.id, created_by_nick: PROFILE.nickname, type: 'direct' }])
-        .select()
-        .single();
-
-      if (roomErr) return alert('채팅방 생성 실패: ' + roomErr.message);
-
-      // 4️⃣ 두 참가자 등록
-      await sb.from('room_participants').insert([
-        { room_id: room.id, user_id: PROFILE.id, nickname: PROFILE.nickname },
-        { room_id: room.id, user_id: partner.user_id, nickname: partner.nickname },
-      ]);
-
-      // 5️⃣ 대기열에서 제거
-      await sb.from('match_queue').delete().in('user_id', [PROFILE.id, partner.user_id]);
-
-      // 6️⃣ 채팅방 열기
-      openChatModal(room.id, `1:1 대화 (${partner.nickname})`);
+      // 버튼 UI 원복
+      const btn = $('#match-start');
+      if (btn) {
+        btn.textContent = '매칭 요청';
+        btn.classList.remove('ghost');
+        btn.classList.add('primary');
+      }
     }
   }, 3000);
 }
+
 
 async function cancelMatching() {
   PROFILE = await ensureProfile();
@@ -800,6 +740,30 @@ async function openOrCreateRoom(meetup_id, type){
   if(type==='meal'){ const { data: meet }=await sb.from('meal_meetups').select('slot,place,date').eq('id',meetup_id).maybeSingle(); if(meet) title=`${meet.slot} · ${meet.place} (${meet.date})`; }
   else{ const { data: meet }=await sb.from('activity_meetups').select('slot,place,date').eq('id',meetup_id).maybeSingle(); if(meet) title=`${meet.slot} · ${meet.place} (${meet.date})`; }
   openChatModal(room.id, title);
+}
+// ===== 1:1 매칭 전용: 모임 없이 두 명만 채팅방 생성 =====
+async function openDirectRoom(userA, userB) {
+  const A = userA || (getProfile() || {});
+  const B = userB || (getProfile() || {});
+
+  // 1) rooms: meetup_id 없이 direct 타입 방 생성
+  const { data: room, error: rErr } = await sb
+    .from('rooms')
+    .insert([{ type: 'direct', created_by: A.id, created_by_nick: A.nickname }])
+    .select()
+    .single();
+  if (rErr) { alert('채팅방 생성 실패: ' + rErr.message); return; }
+
+  // 2) 참가자 두 명 등록
+  const participants = [
+    { room_id: room.id, user_id: A.id, nickname: A.nickname },
+    { room_id: room.id, user_id: B.id, nickname: B.nickname },
+  ];
+  const { error: pErr } = await sb.from('room_participants').upsert(participants);
+  if (pErr) { alert('참가자 등록 실패: ' + pErr.message); return; }
+
+  // 3) 채팅 열기 (상대 닉네임 보이도록)
+  openChatModal(room.id, `1:1 대화 · ${(B.nickname || '상대')}`);
 }
 
 function openChatModal(roomId, title){
@@ -944,11 +908,3 @@ renderActivity();
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
